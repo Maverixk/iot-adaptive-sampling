@@ -1,0 +1,26 @@
+# PlatformIO & ESP32
+.pio/
+libdeps/
+*.bin
+*.elf
+*.hex
+
+# Python & Edge Server
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+env/
+.venv/
+# NEVER commit your secrets/passwords (like MQTT or TTN credentials)
+.env 
+
+# Data
+*.csv 
+*.dat
+
+# IDEs & OS Files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
