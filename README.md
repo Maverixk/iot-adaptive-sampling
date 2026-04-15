@@ -17,4 +17,5 @@ In order to identify the maximum sampling frequency of my device (`LOAD` ESP32),
 - **Average elapsed time** = 60.253 ms
 - **Average maximum frequency** = 16.6 kHz
 - **Average time for sample** = 60.25 us
+
 These results were crucial to better picture my hardware limitations, while they also allowed me to understand how far I could go with the oversampling frequency in the `sampler.cpp` code.

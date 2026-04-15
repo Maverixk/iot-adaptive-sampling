@@ -1,5 +1,4 @@
 #include "sampler.h"
-#include <Arduino.h>
 #include <arduinoFFT.h>
 
 // Buffers
