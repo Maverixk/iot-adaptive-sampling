@@ -1,5 +1,7 @@
 #include "sampler.h"
 #include <arduinoFFT.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/queue.h>
 
 // Buffers
 uint16_t bufferA[SAMPLES];
@@ -17,6 +19,8 @@ double vImag[SAMPLES];
 volatile double currentSamplingFreq = 1000.0;
 volatile double latestAverage = 0.0;
 volatile double latestMaxFreq = 0.0;
+
+QueueHandle_t mqttQueue;
 
 TaskHandle_t FFTTaskHandle = NULL;
 
@@ -67,6 +71,10 @@ void sampleSignalTask(void *pvParameters) {
     TickType_t xLastWakeTime = xTaskGetTickCount();
     int index = 0;
 
+    TickType_t lastWindowTime = xTaskGetTickCount() * portTICK_PERIOD_MS;
+    uint64_t windowSum = 0;
+    uint32_t windowCount = 0;
+
     for (;;) {
         // Read shared frequency safely
         double currentFreq = currentSamplingFreq;
@@ -74,6 +82,23 @@ void sampleSignalTask(void *pvParameters) {
 
         uint16_t val = analogRead(ADC_PIN);
         activeBuffer[index] = val;
+
+        windowSum += val;
+        windowCount++;
+
+        TickType_t currentTime = xTaskGetTickCount() * portTICK_PERIOD_MS;
+        
+        if ((currentTime - lastWindowTime) >= 5000) {
+            float windowAvg = (float)windowSum / windowCount;
+            
+            // Send the average to the queue for the MQTT task
+            xQueueSend(mqttQueue, &windowAvg, 0);
+            
+            // Reset and go again
+            windowSum = 0;
+            windowCount = 0;
+            lastWindowTime = currentTime;
+        }
 
         Serial.print(val);             
         Serial.print("\t");                   

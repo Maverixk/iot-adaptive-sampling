@@ -12,8 +12,8 @@ __pycache__/
 venv/
 env/
 .venv/
-# NEVER commit your secrets/passwords (like MQTT or TTN credentials)
-.env 
+.env
+esp_load/include/secrets.h 
 
 # Data
 *.csv 

@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include "generator.h"
 #include "sampler.h"
+#include "network.h"
 
 TaskHandle_t DacTaskHandle = NULL;
 TaskHandle_t SamplerTaskHandle = NULL;
@@ -13,6 +14,8 @@ void setup() {
   
   initGenerator();
   initSampler();
+
+  mqttQueue = xQueueCreate(10, sizeof(float));
 
   // Generator on Core 1
   xTaskCreatePinnedToCore(
@@ -30,6 +33,9 @@ void setup() {
     );
     xTaskCreatePinnedToCore(
       processSignalTask, "FFT_Task", 8192, NULL, 2, &FFTTaskHandle, 0
+    );
+    xTaskCreatePinnedToCore(
+      networkTask, "Network_Task", 4096, NULL, 1, NULL, 0
     );
   #endif
 }
