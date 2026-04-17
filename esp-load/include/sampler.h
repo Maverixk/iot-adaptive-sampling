@@ -7,7 +7,8 @@
 #define SAMPLES 512
 
 // Expose the FreeRTOS queue so the sampler can put aggregates on it
-extern QueueHandle_t mqttQueue;
+extern QueueHandle_t mqttWifiQueue;
+extern QueueHandle_t mqttLoraQueue;
 
 // Expose the handle so sampler.cpp can use it
 extern TaskHandle_t FFTTaskHandle;

@@ -15,7 +15,8 @@ void setup() {
   initGenerator();
   initSampler();
 
-  mqttQueue = xQueueCreate(10, sizeof(float));
+  mqttWifiQueue = xQueueCreate(5, sizeof(float));
+  mqttLoraQueue = xQueueCreate(5, sizeof(float));
 
   // Generator on Core 1
   xTaskCreatePinnedToCore(
@@ -35,7 +36,10 @@ void setup() {
       processSignalTask, "FFT_Task", 8192, NULL, 2, &FFTTaskHandle, 0
     );
     xTaskCreatePinnedToCore(
-      networkTask, "Network_Task", 4096, NULL, 1, NULL, 0
+      wifiTask, "WiFi_Task", 4096, NULL, 1, NULL, 0
+    );
+    xTaskCreatePinnedToCore(
+      loraTask, "LoRa_Task", 4096, NULL, 1, NULL, 0
     );
   #endif
 }

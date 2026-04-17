@@ -20,7 +20,8 @@ volatile double currentSamplingFreq = 1000.0;
 volatile double latestAverage = 0.0;
 volatile double latestMaxFreq = 0.0;
 
-QueueHandle_t mqttQueue;
+QueueHandle_t mqttWifiQueue;
+QueueHandle_t mqttLoraQueue;
 
 TaskHandle_t FFTTaskHandle = NULL;
 
@@ -72,6 +73,7 @@ void sampleSignalTask(void *pvParameters) {
     int index = 0;
 
     TickType_t lastWindowTime = xTaskGetTickCount() * portTICK_PERIOD_MS;
+
     uint64_t windowSum = 0;
     uint32_t windowCount = 0;
 
@@ -88,15 +90,18 @@ void sampleSignalTask(void *pvParameters) {
 
         TickType_t currentTime = xTaskGetTickCount() * portTICK_PERIOD_MS;
         
-        if ((currentTime - lastWindowTime) >= 5000) {
+        if ((currentTime - lastWindowTime) >= 30000) {
             float windowAvg = (float)windowSum / windowCount;
             
-            // Send the average to the queue for the MQTT task
-            xQueueSend(mqttQueue, &windowAvg, 0);
+            // Send the average to the queues for MQTT
+            xQueueSend(mqttWifiQueue, &windowAvg, 0);
+            xQueueSend(mqttLoraQueue, &windowAvg, 0);
+
             
             // Reset and go again
             windowSum = 0;
             windowCount = 0;
+
             lastWindowTime = currentTime;
         }
 
