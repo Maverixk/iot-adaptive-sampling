@@ -5,6 +5,9 @@
 #include <PubSubClient.h>
 #include <RadioLib.h>
 
+// Wifi always finishes before Lora, so we pass its value to Lora for a single print on BSP
+volatile uint32_t lastWifiLatency = 0;
+
 // WiFi and MQTT client objects
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
@@ -40,7 +43,8 @@ void wifiTask(void *pvParameters) {
 
     for (;;) {
         // WiFi task waits undefinetely until sampler.cpp does not send something on the queue
-        if (xQueueReceive(mqttWifiQueue, &receivedAvg, portMAX_DELAY) == pdTRUE) {
+        // Wait for max 1 second in ticks instead of portMAX_delay in order to keep the MQTT broker going
+        if (xQueueReceive(mqttWifiQueue, &receivedAvg, pdMS_TO_TICKS(1000)) == pdTRUE) {
             
             // Check MQTT connection (auto-reconnects if needed)
             if (!mqttClient.connected()) {
@@ -61,7 +65,12 @@ void wifiTask(void *pvParameters) {
                          "{\"signal_average\": %.2f, \"packet_id\": %u}", 
                          receivedAvg, wifiPacketCounter);
                 
+                uint32_t startNetwork = millis();
                 mqttClient.publish("v1/devices/me/telemetry", jsonPayload);                
+                uint32_t endNetwork = millis();
+
+                lastWifiLatency = endNetwork - startNetwork;
+                
                 Serial.printf("[MQTT] Sent Packet %u | AVG: %.2f\n", wifiPacketCounter, receivedAvg);
             }
         }
@@ -113,15 +122,21 @@ void loraTask(void *pvParameters){
             payload[2] = (uint8_t)(loraPacketCounter >> 8);   // MSB
             payload[3] = (uint8_t)(loraPacketCounter & 0xFF); // LSB
             
+            uint32_t startLora = millis();
+
             // Send 4 bytes to TTN
             int state = node.sendReceive(payload, sizeof(payload));
+
+            uint32_t endLora = millis();
             
-            if(state == RADIOLIB_ERR_NONE){
+            if(state >= 0){
+                uint32_t loraLatency = endLora - startLora;
+                Serial.printf("\nPacket counter: %d | WiFi_RTT: %d ms | LoRa_RTT: %d ms\n", loraPacketCounter, lastWifiLatency, loraLatency);
                 Serial.printf("[LoRa] Sent Packet %u | AVG: %.2f -> Bytes: %02X %02X %02X %02X\n", 
                               loraPacketCounter, receivedLoraAvg, payload[0], payload[1], payload[2], payload[3]);
             }
             else{
-                Serial.printf("[LoRa] Errore invio payload: %d\n", state);
+                Serial.printf("[LoRa] Error sending payload: %d\n", state);
             }
         }
     }

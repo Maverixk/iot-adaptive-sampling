@@ -10,11 +10,13 @@ TaskHandle_t SamplerTaskHandle = NULL;
 
 void setup() {
   Serial.begin(115200);
-  delay(3000); // Our Better Serial Plotter hack!
+  delay(3000);
   
+  Serial.println("WiFi_RTT_ms\tLoRa_RTT_ms");
+
   initGenerator();
   initSampler();
-
+  
   mqttWifiQueue = xQueueCreate(5, sizeof(float));
   mqttLoraQueue = xQueueCreate(5, sizeof(float));
 
@@ -35,12 +37,16 @@ void setup() {
     xTaskCreatePinnedToCore(
       processSignalTask, "FFT_Task", 8192, NULL, 2, &FFTTaskHandle, 0
     );
+    #if WIFI == 1
     xTaskCreatePinnedToCore(
       wifiTask, "WiFi_Task", 4096, NULL, 1, NULL, 0
     );
+    #endif
+    #if LORA == 1
     xTaskCreatePinnedToCore(
       loraTask, "LoRa_Task", 4096, NULL, 1, NULL, 0
     );
+    #endif
   #endif
 }
 

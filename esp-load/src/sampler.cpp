@@ -1,4 +1,5 @@
 #include "sampler.h"
+#include "network.h"
 #include <arduinoFFT.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
@@ -85,31 +86,36 @@ void sampleSignalTask(void *pvParameters) {
         uint16_t val = analogRead(ADC_PIN);
         activeBuffer[index] = val;
 
-        windowSum += val;
-        windowCount++;
+        #if WIFI == 1 || LORA == 1
+            windowSum += val;
+            windowCount++;
 
-        TickType_t currentTime = xTaskGetTickCount() * portTICK_PERIOD_MS;
-        
-        if ((currentTime - lastWindowTime) >= 30000) {
-            float windowAvg = (float)windowSum / windowCount;
+            TickType_t currentTime = xTaskGetTickCount() * portTICK_PERIOD_MS;
             
-            // Send the average to the queues for MQTT
-            xQueueSend(mqttWifiQueue, &windowAvg, 0);
-            xQueueSend(mqttLoraQueue, &windowAvg, 0);
+            if ((currentTime - lastWindowTime) >= 30000) {
+                float windowAvg = (float)windowSum / windowCount;
+                
+                // Send the average to the queues for MQTT
+                #if WIFI == 1
+                    xQueueSend(mqttWifiQueue, &windowAvg, 0);
+                #endif
+                #if LORA == 1
+                    xQueueSend(mqttLoraQueue, &windowAvg, 0);
+                #endif
+                
+                // Reset and go again
+                windowSum = 0;
+                windowCount = 0;
 
-            
-            // Reset and go again
-            windowSum = 0;
-            windowCount = 0;
-
-            lastWindowTime = currentTime;
-        }
+                lastWindowTime = currentTime;
+            }
+        #endif
 
         Serial.print(val);             
         Serial.print("\t");                   
         Serial.print(latestAverage);                
         Serial.print("\t");                   
-        Serial.println(latestMaxFreq); 
+        Serial.println(latestMaxFreq);
 
         index++;
 

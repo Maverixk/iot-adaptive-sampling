@@ -12,15 +12,38 @@ uint16_t waveLUT[SAMPLES_PER_CYCLE];
 
 // Function meant for pre-computing sine values
 void generateLookupTable() {
-int idx_a1 = esp_random() % 6;
-  int idx_f1 = esp_random() % 6;
-  int idx_a2 = esp_random() % 6;
-  int idx_f2 = esp_random() % 6;
 
-  int a1 = amplitudes[idx_a1];
-  int f1 = frequencies[idx_f1];
-  int a2 = amplitudes[idx_a2];
-  int f2 = frequencies[idx_f2];
+  int a1, a2, f1, f2;
+  
+  #if MODE == 0
+    int idx_a1 = esp_random() % 6;
+    int idx_f1 = esp_random() % 6;
+    int idx_a2 = esp_random() % 6;
+    int idx_f2 = esp_random() % 6;
+
+    a1 = amplitudes[idx_a1];
+    f1 = frequencies[idx_f1];
+    a2 = amplitudes[idx_a2];
+    f2 = frequencies[idx_f2];
+  #elif MODE == 1
+    a1 = 4;
+    a2 = 5;
+    f1 = 5;
+    f2 = 7;
+  #elif MODE == 2
+    a1 = 12;
+    a2 = 2;
+    f1 = 3;
+    f2 = 17;
+  #elif MODE == 3
+    a1 = 2;
+    a2 = 10;
+    f1 = 3;
+    f2 = 13;
+  #else 
+    Serial.printf("Wrong signal generation mode! Defaulting to MODE 1\n");
+    a1 = 4; a2 = 5; f1 = 5; f2 = 7;
+  #endif
 
   Serial.printf("Signal 1 -> %d*(2*pi*%d*t)\n", a1, f1);
   Serial.printf("Signal 2 -> %d*(2*pi*%d*t)\n", a2, f2);
