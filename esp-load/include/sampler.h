@@ -4,6 +4,7 @@
 #include <Arduino.h>
 
 #define ADC_PIN 6 
+#define ADAPTIVE 1
 #define SAMPLES 512
 
 // Expose the FreeRTOS queue so the sampler can put aggregates on it

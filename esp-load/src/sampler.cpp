@@ -17,7 +17,7 @@ double vReal[SAMPLES];
 double vImag[SAMPLES];
 
 // 'volatile' tells the compiler these change across different FreeRTOS tasks
-volatile double currentSamplingFreq = 1000.0;
+volatile double currentSamplingFreq = 500.0;
 volatile double latestAverage = 0.0;
 volatile double latestMaxFreq = 0.0;
 
@@ -28,6 +28,7 @@ TaskHandle_t FFTTaskHandle = NULL;
 
 void initSampler() {
     analogReadResolution(12);
+    analogSetAttenuation(ADC_11db);
     pinMode(ADC_PIN, INPUT);
 }
 
@@ -179,16 +180,15 @@ void processSignalTask(void *pvParameters) {
         }
 
         // Update shared frequency for the plotter
-        if (maxFreq > 0.1) latestMaxFreq = maxFreq;
+        if (maxFreq >= 0.1) latestMaxFreq = maxFreq;
 
-        // Adaptive Phase: $f_{sample} \geq 2 \cdot f_{max}$
-        double optimizedFreq = maxFreq * 2.2;
+        #if ADAPTIVE == 1
+            // Adaptive phase
+            double optimizedFreq = maxFreq * 2.2;
 
-    /*  if (optimizedFreq < 15.0) optimizedFreq = 15.0; 
-        if (optimizedFreq > 200.0) optimizedFreq = 200.0;  */
-
-        if (abs(currentSamplingFreq - optimizedFreq) > 2.0) {
-            currentSamplingFreq = optimizedFreq;
-        }
+            if (abs(currentSamplingFreq - optimizedFreq) > 2.0) {
+                currentSamplingFreq = optimizedFreq;
+            }
+        #endif
     }
 }
