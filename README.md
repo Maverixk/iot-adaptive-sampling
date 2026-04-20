@@ -128,11 +128,14 @@ If instead, we want to see the volume of data as the theoretical amount of bytes
 Below you will find 3 different test ran with 3 different functions.
 
 $$s_{1}(t) = 4 \sin(2\pi \cdot 5t) + 5 \sin(2\pi \cdot 7t)$$
+
 ![Signal 1 plot](images/signal_1.png)
 
 $$s_{2}(t) = 12 \sin(2\pi \cdot 3t) + 2 \sin(2\pi \cdot 17t)$$
+
 ![Signal 2 plot](images/signal_2.png)
 
 $$s_{3}(t) = 2 \sin(2\pi \cdot 3t) + 10 \sin(2\pi \cdot 13t)$$
+
 ![Signal 3 plot](images/signal_3.png)
 
