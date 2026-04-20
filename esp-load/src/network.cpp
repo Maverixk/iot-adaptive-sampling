@@ -26,8 +26,8 @@ LoRaWANNode node(&radio, &EU868);
 void wifiTask(void *pvParameters) {
     // Connect to WiFi
     Serial.print("[WiFi] Connecting to ");
-    Serial.println(WIFI_SSID);
-    WiFi.begin(WIFI_SSID, WIFI_PASS);
+    Serial.println(HOTSPOT_SSID);
+    WiFi.begin(HOTSPOT_SSID, HOTSPOT_PASS);
     
     while (WiFi.status() != WL_CONNECTED) {
         vTaskDelay(pdMS_TO_TICKS(500));
@@ -106,7 +106,7 @@ void loraTask(void *pvParameters){
     uint16_t loraPacketCounter = 0;
 
     for (;;) {
-        if (xQueueReceive(mqttLoraQueue, &receivedLoraAvg, portMAX_DELAY) == pdTRUE) {
+        if (xQueueReceive(loraQueue, &receivedLoraAvg, portMAX_DELAY) == pdTRUE) {
 
             loraPacketCounter++;
             
@@ -131,9 +131,14 @@ void loraTask(void *pvParameters){
             
             if(state >= 0){
                 uint32_t loraLatency = endLora - startLora;
-                Serial.printf("\nPacket counter: %d | WiFi_RTT: %d ms | LoRa_RTT: %d ms\n", loraPacketCounter, lastWifiLatency, loraLatency);
-                Serial.printf("[LoRa] Sent Packet %u | AVG: %.2f -> Bytes: %02X %02X %02X %02X\n", 
-                              loraPacketCounter, receivedLoraAvg, payload[0], payload[1], payload[2], payload[3]);
+                #if LORA == 1 && WIFI == 1
+                    Serial.printf("\nPacket counter: %d | WiFi_RTT: %d ms | LoRa_RTT: %d ms\n", loraPacketCounter, lastWifiLatency, loraLatency);
+                    Serial.printf("[LoRa] Sent Packet %u | AVG: %.2f -> Bytes: %02X %02X %02X %02X\n", 
+                                loraPacketCounter, receivedLoraAvg, payload[0], payload[1], payload[2], payload[3]);
+                #else
+                    Serial.printf("[LoRa] Sent Packet %u | AVG: %.2f -> Bytes: %02X %02X %02X %02X\n", 
+                                loraPacketCounter, receivedLoraAvg, payload[0], payload[1], payload[2], payload[3]);
+                #endif
             }
             else{
                 Serial.printf("[LoRa] Error sending payload: %d\n", state);

@@ -5,6 +5,11 @@
 
 Adafruit_INA219 ina219;
 
+// Global variables for the moving averages
+float avg_power_mW = 0.0f;
+float avg_current_mA = 0.0f;
+bool first_reading = true;
+
 void setup(void) {
   Serial.begin(115200);
   
@@ -29,10 +34,27 @@ void loop(void) {
   float current_mA = ina219.getCurrent_mA();
   float power_mW = ina219.getPower_mW();
 
-  // Stampa i valori separati da tabulazione (\t) per il plotter
+  // Initialize the averages on the first loop
+  if (first_reading) {
+    avg_power_mW = power_mW;
+    avg_current_mA = current_mA;
+    first_reading = false;
+  } else {
+    /* Exponential Moving Average Formula:
+      - 0.02 is the "smoothing factor". A smaller number means a smoother, slower-reacting line.
+      - 0.98 is (1.0 - smoothing factor). */
+    avg_power_mW = (0.02 * power_mW) + (0.98 * avg_power_mW);
+    avg_current_mA = (0.02 * current_mA) + (0.98 * avg_current_mA);
+  }
+
+  // Print all values separated by tabs for BSP
   Serial.print(current_mA);
   Serial.print("\t");
-  Serial.println(power_mW);
+  Serial.print(avg_current_mA);
+  Serial.print("\t");
+  Serial.print(power_mW);
+  Serial.print("\t");
+  Serial.println(avg_power_mW);
 
   // 50ms of delay means 20Hz measurements. 
   delay(50);

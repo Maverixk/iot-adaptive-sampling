@@ -18,7 +18,7 @@ void setup() {
   initSampler();
   
   mqttWifiQueue = xQueueCreate(5, sizeof(float));
-  mqttLoraQueue = xQueueCreate(5, sizeof(float));
+  loraQueue = xQueueCreate(5, sizeof(float));
 
   // Generator on Core 1
   xTaskCreatePinnedToCore(

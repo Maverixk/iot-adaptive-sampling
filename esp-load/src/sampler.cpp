@@ -22,7 +22,7 @@ volatile double latestAverage = 0.0;
 volatile double latestMaxFreq = 0.0;
 
 QueueHandle_t mqttWifiQueue;
-QueueHandle_t mqttLoraQueue;
+QueueHandle_t loraQueue;
 
 TaskHandle_t FFTTaskHandle = NULL;
 
@@ -101,7 +101,7 @@ void sampleSignalTask(void *pvParameters) {
                     xQueueSend(mqttWifiQueue, &windowAvg, 0);
                 #endif
                 #if LORA == 1
-                    xQueueSend(mqttLoraQueue, &windowAvg, 0);
+                    xQueueSend(loraQueue, &windowAvg, 0);
                 #endif
                 
                 // Reset and go again
