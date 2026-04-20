@@ -21,6 +21,9 @@ volatile double currentSamplingFreq = 500.0;
 volatile double latestAverage = 0.0;
 volatile double latestMaxFreq = 0.0;
 
+// Tracks the CPU time spent calculating FFTs in the current window
+volatile uint32_t windowExecutionTimeUs = 0;
+
 QueueHandle_t mqttWifiQueue;
 QueueHandle_t loraQueue;
 
@@ -95,6 +98,13 @@ void sampleSignalTask(void *pvParameters) {
             
             if ((currentTime - lastWindowTime) >= 30000) {
                 float windowAvg = (float)windowSum / windowCount;
+
+                // Read the volatile variable and reset for the next window
+                uint32_t totalExecUs = windowExecutionTimeUs;
+                windowExecutionTimeUs = 0;
+                float totalExecMs = totalExecUs / 1000.0f;
+
+                Serial.printf("CPU Execution Time (FFT): %.2f ms\n", totalExecMs);
                 
                 // Send the average to the queues for MQTT
                 #if WIFI == 1
@@ -111,7 +121,7 @@ void sampleSignalTask(void *pvParameters) {
                 lastWindowTime = currentTime;
             }
         #endif
-
+       
         Serial.print(val);             
         Serial.print("\t");                   
         Serial.print(latestAverage);                
@@ -142,6 +152,9 @@ void processSignalTask(void *pvParameters) {
     for (;;) {
         // Sleep and yield CPU until the Sampler fills a buffer
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+
+        // Tic tac tic tac
+        uint32_t startFFT = micros();
 
         double sum = 0;
         // Copy the raw values into the FFT array
@@ -190,5 +203,8 @@ void processSignalTask(void *pvParameters) {
                 currentSamplingFreq = optimizedFreq;
             }
         #endif
+        
+        uint32_t endFFT = micros();
+        windowExecutionTimeUs += (endFFT - startFFT);
     }
 }

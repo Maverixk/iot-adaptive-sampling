@@ -20,7 +20,7 @@ The first project is meant to be loaded on the `LOAD` ESP32, as it contains the 
 - **Sampler**, which samples the signal from the DAC and runs the FFT on it to adapt the frequency;
 - **Network**, which receives the aggregate data from the sampler and sends them via WiFi/LoRa for a given time window.
 
-The second project targets instead the `MONITOR` ESP32 and is only meant for measuring the instantaneous current (in mA) and power (in mW).
+The second project targets instead the `MONITOR` ESP32 and is only meant for measuring the instantaneous and average current (in mA) and power (in mW).
 
 ## Hardware setup
 I adopted 2 different setups for this whole assignment. 
@@ -37,7 +37,7 @@ The second setup is intended to be the full setup. It involves the `LOAD` ESP32 
 In order to identify the maximum sampling frequency of my device (`LOAD` ESP32), I chose to implement a function ```void highSpeedTestTask(void *pvParameters)``` whose goal is to perform analog reads (via ADC) on 1000 samples for 5 consecutive times without any kind of delay. At the end of this process, I averaged the results which are:
 - **Average elapsed time** = 60.253 ms
 - **Average maximum frequency** = 16.6 kHz
-- **Average time for sample** = 60.25 us
+- **Average time per sample** = 60.25 us
 
 These results were crucial to better picture my hardware limitations, while they also allowed me to understand how far I could go with the oversampling frequency in the `sampler.cpp` code.
 
@@ -67,6 +67,8 @@ The photos seen below are taken directly from the dashboards of ThingsBoard (for
 ![The Things Network console (LoRa)](images/ttn.png)
 
 ## Performance measurements
+
+### Energy consumption
 Talking about energy, it makes sense to expect a higher energy consumption in case of oversampling. That's exactly what happened!
 
 ![Energy consumption for oversamping frequency](images/oversampling.png)
@@ -77,13 +79,60 @@ To put the oversampling frequency energy consumption in perspective, we should h
 
 ![Energy consumption for adaptive frequency](images/adaptive.png)
 
-It is clear already from the instantaneous current plot that the energy consumption is mainly flat with just a peak every 3 second (approx.). The average consumption of the adaptive frequency is around 56 mA, which means implementing an adaptive frequency mechanism saves us **13 mA**, which is **~19%** of the energy consumption of the oversampling frequency!
+It is clear already from the instantaneous current plot that the energy consumption is mainly flat with just a peak every ~3 seconds. The average consumption of the adaptive frequency is around **56 mA**, which means implementing an adaptive frequency mechanism saves us **13 mA**, which is **~19%** of the energy consumption of the oversampling frequency!
 
+
+### Network RTTs
 The terminal photo below shows the computed RTTs for both WiFi and LoRa. Despite the visible stability in the measurements, I have to underline an important factor for the WiFi RTTs: the measured Wi-Fi latency represents the local TCP buffer write time (~2ms) because the PubSubClient uses QoS 0 (fire-and-forget). It does NOT represent the true RTT (which should still be in a range of 30-60 ms). Conversely, the LoRaWAN latency (~1-2 seconds) represents the true MAC-layer transaction time, as the radio must wait for the RX1/RX2 receive windows to close.
 
 ![Network RTTs comparison](images/rtts_comparison.png)
 
-Per-window execution time...
+### Per-window execution time
+The execution time of a single window represents the time effectively spent by the CPU doing heavy calculations for each time window, and is strictly dependant on the frequency we choose. In fact, if we consider the oversampling frequency of `500 Hz` and buffer size of `512 samples`, we process a whole buffer every:
 
-Data volume (oversampled vs adaptive)
+$$T_{buffer} = \frac{512 \text{ samples}}{500 \text{ samples/second}} \approx 0.976 \text{ seconds}$$
+
+This means that for every window we process approximately:
+
+$$\text{Buffers per window} = \frac{30 \text{ seconds}}{0.976 \text{ seconds/buffer}} \approx 30.73 \text{ buffers}$$
+
+The photo shown below proposes an execution of the system where only LoRa is employed in the transmission and the signal processed is $s(t) = 12 \sin(2\pi \cdot 3t) + 2 \sin(2\pi \cdot 17t)$.
+
+![Per-window execution time example](images/per_window_time.png)
+
+We can notice that for packets 1, 6 and 12 we have a CPU time of 42 ms rather than the average 28 ms seen for the other packets. This is totally fine and is actually an interesting event to explain! In fact, considering our maximum frequency for this signal is **17 Hz**, the sampling frequency will be:
+
+$$f_{sampling} = 17 \text{ Hz} \cdot 2.2 = 37.4 \text{ Hz}$$
+
+As a result, we will get that in order to process an entire buffer we will need:
+
+$$T_{buffer} = \frac{512 \text{ samples}}{37.4 \text{ samples/second}} = 13.69 \text{ seconds}$$
+
+$$\text{Buffers per window} = \frac{30 \text{ seconds}}{13.69 \text{ seconds/buffer}} \approx 2.19 \text{ buffers}$$
+
+Consequently, we will have about **0.19** of a buffer left over for every window. So, it takes $1/0.19 \approx 5.26 \text{ windows}$ to accumulate a full extra buffer, perfectly explaining why there is a **14 ms** increment every 6 packets.
+
+### Volume of data
+Finally, some consideration on the entity of data traffic needs to be done. Practically speaking there isn't any real difference between whether we are in an oversampling or adaptive sampling scenario, as the volume of the data transmitted will always be the same:
+- **WiFi (MQTT)**: one JSON string containing the average value and packet ID (~45-50 bytes of payload);
+- **LoRa**: one 4-byte payload.
+
+This is due to the fact that the aggregate value is computed locally, in order to avoid a huge data stream that would only consume our TTN transmission time very quickly, as well as wasting a massive amount of energy from the battery.
+
+If instead, we want to see the volume of data as the theoretical amount of bytes we would be sending if we were transmitting all single samples, then the sampling frequency would have been crucial. In fact, there could have been many different cases:
+- **500 Hz** (oversampling), we would transmit 15,000 data points per window (**approx. 30,000 bytes**);
+- **17 Hz** (previous adaptive example), we would transmit 510 data points per window (**approx. 1,020 bytes**). 
+
+## Bonus
+### Testing 3 different signals
+Below you will find 3 different test ran with 3 different functions.
+
+$$s_{1}(t) = 4 \sin(2\pi \cdot 5t) + 5 \sin(2\pi \cdot 7t)$$
+![Signal 1 plot](images/signal_1.png)
+
+$$s_{2}(t) = 12 \sin(2\pi \cdot 3t) + 2 \sin(2\pi \cdot 17t)$$
+![Signal 2 plot](images/signal_2.png)
+
+$$s_{3}(t) = 2 \sin(2\pi \cdot 3t) + 10 \sin(2\pi \cdot 13t)$$
+![Signal 3 plot](images/signal_3.png)
 
