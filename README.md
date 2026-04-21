@@ -4,6 +4,8 @@
 The following repository contains all the material developed for the individual assignment of the Internet-of-Things Algorithms and Services course, held by Sapienza University of Rome during A.Y. 2025/2026. 
 The assignment consists in developing an IoT system capable of generating a continous signal, establishing the correct sampling frequency and sending the aggregate results both on a edge server via WiFi and on a cloud server via LoRaWAN.
 
+---
+
 ## Material used
 - 2x ESP32 V3 (from here on called `LOAD` and `MONITOR`)
 - 1x INA219
@@ -11,6 +13,8 @@ The assignment consists in developing an IoT system capable of generating a cont
 - 1x 3.3V LiPo battery
 - 1x 400-pin breadboard
 - DuPont wires
+
+---
 
 ## Code structure
 The code is organized in 2 different PlatformIO projects. 
@@ -22,6 +26,8 @@ The first project is meant to be loaded on the `LOAD` ESP32, as it contains the 
 
 The second project targets instead the `MONITOR` ESP32 and is only meant for measuring the instantaneous and average current (in mA) and power (in mW).
 
+---
+
 ## Hardware setup
 I adopted 2 different setups for this whole assignment. 
 
@@ -32,6 +38,8 @@ The first setup only involves the `LOAD` ESP and the DAC, as I wanted to correct
 The second setup is intended to be the full setup. It involves the `LOAD` ESP32 with the DAC attached, but this time the `LOAD` is connected to a 3.3V LiPo battery rather than the USB-C port of a PC. The rest of the schematic includes another ESP32 (`MONITOR`) with an INA219 connected to it, which are meant to measure the energy consumption of the `LOAD`. To make things easier, a breadboard is also introduced in order to have a physical common ground.
 
 ![MONITOR-only hardware setup](images/esp_monitor.png)
+
+---
 
 ## Maximum frequency
 In order to identify the maximum sampling frequency of my device (`LOAD` ESP32), I chose to implement a function ```void highSpeedTestTask(void *pvParameters)``` whose goal is to perform analog reads (via ADC) on 1000 samples for 5 consecutive times without any kind of delay. At the end of this process, I averaged the results which are:
@@ -53,18 +61,23 @@ $$f_{max} = \frac{1}{0.001736} \approx 576 \text{ Hz}$$
 
 This mathematical result forced me to fix the oversampling frequency to `500 Hz`, which considering the entity of the input signals is still pretty high. 
 
-Below you can find the plots (signal, raw value average, maximum frequency) for the signal $s(t) = 12 \sin(2\pi \cdot 3t) + 2 \sin(2\pi \cdot 17t)$.
-
-![Data plots](images/plotted_signal.png)
+---
 
 ## Communication via WiFi and LoRa
 As requested by the assignment, the raw signal is averaged over a fixed time window.
 The gathered data can be transmitted both via **WiFi** using MQTT (on ThingsBoard) and **LoRa** (on TTN). For the sake of simplicity, I chose to synchronize the time window for both communications to 30 seconds. This is mainly due to the strict time limitations imposed by The Things Network, which only allows **30s** of transmission time per day. Considering we are sampling a periodic signal (so that is not subject to changes), it makes sense to widen the window. In the header file, both WiFi and LoRa can be enabled/disabled to replicate all the experiments by setting constants `WIFI` and `LORA` to 0/1 in the header file `network.h`.
 
-The photos seen below are taken directly from the dashboards of ThingsBoard (for WiFi) and The Things Network (for Lora).
+The photos seen below are taken directly from the dashboards of ThingsBoard (for WiFi) and The Things Network (for LoRa).
+
+### ThingsBoard Dashboard
 
 ![ThingsBoard console (WiFi)](images/thingsboard.png)
+
+### TTN Dashboard
+
 ![The Things Network console (LoRa)](images/ttn.png)
+
+---
 
 ## Performance measurements
 
@@ -123,6 +136,8 @@ This is due to the fact that the aggregate value is computed locally, in order t
 If instead, we want to see the volume of data as the theoretical amount of bytes we would be sending if we were transmitting all single samples, then the sampling frequency would have been crucial. In fact, there could have been many different cases:
 - **500 Hz** (oversampling), we would transmit 15,000 data points per window (**approx. 30,000 bytes**);
 - **17 Hz** (previous adaptive example), we would transmit 510 data points per window (**approx. 1,020 bytes**). 
+
+---
 
 ## Bonus
 ### Testing 3 different signals
