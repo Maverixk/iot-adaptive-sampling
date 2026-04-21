@@ -201,5 +201,33 @@ As you can see for all 3 signals, the save in energy between an oversampled and 
 
 ### Filters
 
+The function modeled by both filters is $s(t) = 2 \sin(2\pi \cdot 3t) + 4 \sin(2\pi \cdot 5t) + n(t) + A(t)$, where n(t) is some Gaussian noise (σ=0.2) and A(t) is a sparse random spike (injected with probability p=0.05) that has magnitude of range ± U(5, 15).
+
+#### Z-Score (Window size = 20, P(spike) = 5%)
+
+![Z-Score (Window size = 20, P(spike) = 5%)](images/zscore_w20_p5.png)
+
+#### Hampel (Window size = 20, P(spike) = 5%)
+
+![Hampel (Window size = 20, P(spike) = 5%)](images/hampel_w20_p5.png)
+
+As you can see in the photos above, the anomaly detection is pretty poor for both filters. In fact, although the Hampel filter is able to spot a few anomalies, the Z-Score filter is constantly spotting none. A first and very straightforward answer can be found in the very first filters' measurements. It emerges that at the beginning of the signal when we start oversampling, the high frequency allows us to look at a bigger spectrum of our signal, making it way easy to spot anomalies.
+
+Instead, when adaptive sampling kicks in and our sampling frequency drops to 11 Hz, it becomes way more difficult for both filters to spot outliers. This teaches us that anomaly detection is very complicated to perform when we are sampling at low frequencies!
+
+Moreover, we can see that the CPU time for the Z-Score filter is on average 5 ms longer than the CPU time for the Hampel filter. This is most likely due to the fact that the Z-Score filter function needs to compute its values by calling functions like `sqrt()` and `pow()`, making this filter slightly heavier.
+
+#### Max frequency (unfiltered vs filtered)
+What about the maximum frequency? Is it affected by the noise when there is no filter? To answer this question we will rely on the underlying plots which respectively show the maximum frequency when the signal is **unfiltered** and when the **Hampel filter** is applied.
+
+![Unfiltered plot](images/no_filters_plot.png)
+
+![Hampel plot](images/hampel_plot.png)
+
+Looking at the plots, we can easily say that the maximum frequency was not really affected by the noise. In fact, the low probability of having spikes and the gaussian noise were amazingly sustained by the threshold mechanism of the FFT even in the unfiltered case!
+
+Moreover, as already mentioned, in the Hampel filter plot we can see a spike that was not spotted by the filter, which is a solid proof of how difficult it is to spot anomalies at low frequencies.
+
+
 
 

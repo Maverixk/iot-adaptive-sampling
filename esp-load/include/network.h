@@ -3,7 +3,7 @@
 
 #include <Arduino.h>
 
-#define WIFI 0
+#define WIFI 1
 #define LORA 0
 
 // Physical pins of Heltec V3 for SX1262 module

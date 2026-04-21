@@ -40,6 +40,11 @@ void generateLookupTable() {
     a2 = 10;
     f1 = 3;
     f2 = 13;
+  #elif MODE == 4
+    a1 = 2;
+    a2 = 4;
+    f1 = 3;
+    f2 = 5;
   #else 
     Serial.printf("Wrong signal generation mode! Defaulting to MODE 1\n");
     a1 = 4; a2 = 5; f1 = 5; f2 = 7;

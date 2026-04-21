@@ -26,6 +26,20 @@ volatile double latestMaxFreq = 0.0;
     volatile uint32_t windowExecutionTimeUs = 0;
 #endif
 
+#if INJECT_NOISE == 1
+    // Anomaly tracking buffers (True = spike injected here)
+    bool anomalyMapA[SAMPLES];
+    bool anomalyMapB[SAMPLES];
+
+    bool* activeAnomalyMap = anomalyMapA;
+    bool* processAnomalyMap = anomalyMapB;
+
+    // Filters bonus
+    const float PROBABILITY_P = 0.05; // 2% chance of spike
+    const float NOISE_SIGMA = 0.2;    // Gaussian noise sigma
+    const float ADC_SCALE = 146.0;    // Rough scaling factor to map formula units to 12-bit ADC units
+#endif
+
 QueueHandle_t mqttWifiQueue;
 QueueHandle_t loraQueue;
 
@@ -35,6 +49,31 @@ void initSampler() {
     analogReadResolution(12);
     analogSetAttenuation(ADC_11db);
     pinMode(ADC_PIN, INPUT);
+}
+
+// Generate Gaussian noise (Box-Muller Transform)
+float generateGaussianNoise(float mu, float sigma) {
+    float u1 = (float)esp_random() / UINT32_MAX;
+    float u2 = (float)esp_random() / UINT32_MAX;
+    if (u1 == 0.0) u1 = 1e-7; 
+    float z0 = sqrt(-2.0 * log(u1)) * cos(2.0 * PI * u2);
+    return z0 * sigma + mu;
+}
+
+// Compute median
+float getMedian(float arr[], int n) {
+    // Basic insertion sort for small windows
+    for (int i = 1; i < n; ++i) {
+        float key = arr[i];
+        int j = i - 1;
+        while (j >= 0 && arr[j] > key) {
+            arr[j + 1] = arr[j];
+            j = j - 1;
+        }
+        arr[j + 1] = key;
+    }
+    if (n % 2 != 0) return arr[n / 2];
+    return (arr[(n - 1) / 2] + arr[n / 2]) / 2.0;
 }
 
 void highSpeedTestTask(void *pvParameters) {
@@ -84,13 +123,35 @@ void sampleSignalTask(void *pvParameters) {
     uint64_t windowSum = 0;
     uint32_t windowCount = 0;
 
+    Serial.printf("");
+
     for (;;) {
         // Read shared frequency safely
         double currentFreq = currentSamplingFreq;
         TickType_t samplingDelay = pdMS_TO_TICKS(1000.0 / currentFreq);
 
-        uint16_t val = analogRead(ADC_PIN);
-        activeBuffer[index] = val;
+        int32_t val = analogRead(ADC_PIN);
+
+        #if INJECT_NOISE == 1
+            activeAnomalyMap[index] = false;
+
+            // Add Gaussian baseline noise
+            val += (int32_t)(generateGaussianNoise(0, NOISE_SIGMA) * ADC_SCALE);
+
+            // Inject spike anomaly
+            if ((float)esp_random() / UINT32_MAX < PROBABILITY_P) {
+                float spike = 5.0 + ((float)esp_random() / UINT32_MAX) * 10.0; // U(5, 15)
+                if (esp_random() % 2 == 0) spike = -spike;
+                val += (int32_t)(spike * ADC_SCALE);
+                activeAnomalyMap[index] = true; // Mark that we injected a true anomaly here
+            }
+
+            // Constrain to 12-bit ADC limits
+            if (val > 4095) val = 4095;
+            if (val < 0) val = 0;
+        #endif
+
+        activeBuffer[index] = (uint16_t)val;
 
         #if WIFI == 1 || LORA == 1
             windowSum += val;
@@ -138,6 +199,13 @@ void sampleSignalTask(void *pvParameters) {
             uint16_t* temp = activeBuffer;
             activeBuffer = processBuffer;
             processBuffer = temp;
+
+            #if INJECT_NOISE == 1
+                bool* tempMap = activeAnomalyMap;
+                activeAnomalyMap = processAnomalyMap;
+                processAnomalyMap = tempMap;
+            #endif
+
             index = 0;
 
             // Wake up the FFT task to process the full buffer
@@ -159,6 +227,88 @@ void processSignalTask(void *pvParameters) {
             // Tic tac tic tac
             uint32_t startFFT = micros();
         #endif
+
+        #if INJECT_NOISE == 1
+            int truePositives = 0;
+            int falsePositives = 0;
+            int trueAnomaliesCount = 0;
+
+            // Count total injected anomalies for TPR calculation
+            for (int i = 0; i < SAMPLES; i++) {
+                if (processAnomalyMap[i]) trueAnomaliesCount++;
+            }
+        #endif
+
+        // Filtering logic
+        #if INJECT_NOISE == 1 && FILTER_TYPE > 0 
+            uint16_t filteredBuffer[SAMPLES];
+            int halfWin = FILTER_WINDOW_SIZE / 2;
+
+            for (int i = 0; i < SAMPLES; i++) {
+                // Handle edge cases
+                int startIdx = max(0, i - halfWin);
+                int endIdx = min(SAMPLES - 1, i + halfWin);
+                int currentWinSize = endIdx - startIdx + 1;
+
+                float windowData[currentWinSize];
+                float sum = 0;
+
+                for (int j = 0; j < currentWinSize; j++) {
+                    windowData[j] = processBuffer[startIdx + j];
+                    sum += windowData[j];
+                }
+
+                bool flaggedAsAnomaly = false;
+
+                if (FILTER_TYPE == 1) { 
+                    // Z-Score filter
+                    float mean = sum / currentWinSize;
+                    float variance = 0;
+                    for (int j = 0; j < currentWinSize; j++) {
+                        variance += pow(windowData[j] - mean, 2);
+                    }
+                    variance /= currentWinSize;
+                    float stddev = sqrt(variance);
+
+                    if (stddev > 0 && fabs(processBuffer[i] - mean) > 3.0 * stddev) {
+                        filteredBuffer[i] = (uint16_t)mean; // Replace with mean
+                        flaggedAsAnomaly = true;
+                    } else {
+                        filteredBuffer[i] = processBuffer[i];
+                    }
+
+                } else if (FILTER_TYPE == 2) { 
+                    // Hampel filter
+                    float median = getMedian(windowData, currentWinSize);
+                    float deviations[currentWinSize];
+                    for (int j = 0; j < currentWinSize; j++) {
+                        deviations[j] = fabs((float)processBuffer[startIdx + j] - median);
+                    }
+                    float mad = getMedian(deviations, currentWinSize);
+                    
+                    if (mad > 0 && fabs(processBuffer[i] - median) > (3.0 * mad)) {
+                        filteredBuffer[i] = (uint16_t)median; // Replace with median
+                        flaggedAsAnomaly = true;
+                    } else {
+                        filteredBuffer[i] = processBuffer[i];
+                    }
+                }
+
+                // Check accuracy
+                if (flaggedAsAnomaly && processAnomalyMap[i]) truePositives++;
+                if (flaggedAsAnomaly && !processAnomalyMap[i]) falsePositives++;
+            }
+
+            // Copy filtered data back
+            for (int i = 0; i < SAMPLES; i++) {
+                processBuffer[i] = filteredBuffer[i];
+            }
+
+            float tpr = trueAnomaliesCount > 0 ? ((float)truePositives / trueAnomaliesCount) * 100.0 : 0;
+            float fpr = (SAMPLES - trueAnomaliesCount) > 0 ? ((float)falsePositives / (SAMPLES - trueAnomaliesCount)) * 100.0 : 0;
+            Serial.printf("[FILTER] Injected: %d | TP: %d (%.1f%%) | FP: %d (%.1f%%)\n", trueAnomaliesCount, truePositives, tpr, falsePositives, fpr);
+        #endif
+
 
         double sum = 0;
         // Copy the raw values into the FFT array
