@@ -21,8 +21,10 @@ volatile double currentSamplingFreq = 500.0;
 volatile double latestAverage = 0.0;
 volatile double latestMaxFreq = 0.0;
 
-// Tracks the CPU time spent calculating FFTs in the current window
-volatile uint32_t windowExecutionTimeUs = 0;
+#if WIFI == 1 || LORA == 1
+    // Tracks the CPU time spent calculating FFTs in the current window
+    volatile uint32_t windowExecutionTimeUs = 0;
+#endif
 
 QueueHandle_t mqttWifiQueue;
 QueueHandle_t loraQueue;
@@ -153,8 +155,10 @@ void processSignalTask(void *pvParameters) {
         // Sleep and yield CPU until the Sampler fills a buffer
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
-        // Tic tac tic tac
-        uint32_t startFFT = micros();
+        #if WIFI == 1 || LORA == 1
+            // Tic tac tic tac
+            uint32_t startFFT = micros();
+        #endif
 
         double sum = 0;
         // Copy the raw values into the FFT array
@@ -174,7 +178,7 @@ void processSignalTask(void *pvParameters) {
         FFT.compute(FFT_FORWARD);
         FFT.complexToMagnitude();
 
-        // Find the True Max Frequency (Nyquist limit)
+        // Find the true Max Frequency (Nyquist limit)
         double magnitudeSum = 0;
         for (int i = 1; i < SAMPLES / 2; i++) 
             magnitudeSum += vReal[i];
@@ -204,7 +208,9 @@ void processSignalTask(void *pvParameters) {
             }
         #endif
         
-        uint32_t endFFT = micros();
-        windowExecutionTimeUs += (endFFT - startFFT);
+        #if WIFI == 1 || LORA == 1
+            uint32_t endFFT = micros();
+            windowExecutionTimeUs += (endFFT - startFFT);
+        #endif
     }
 }

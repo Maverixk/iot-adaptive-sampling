@@ -82,7 +82,8 @@ To put the oversampling frequency energy consumption in perspective, we should h
 It is clear already from the instantaneous current plot that the energy consumption is mainly flat with just a peak every ~3 seconds. The average consumption of the adaptive frequency is around **56 mA**, which means implementing an adaptive frequency mechanism saves us **13 mA**, which is **~19%** of the energy consumption of the oversampling frequency!
 
 
-### Network RTTs
+### End-to-end latency
+For this point, I realized it did not make much sense to talk about end-to-end latency from the point the data is generated, as I already know that the data generated for a single window is computed across 30 seconds. So, I guessed it made much more sense to talk about **network RTTs**, to understand the differences between WiFi and LoRa in terms of travel time.
 The terminal photo below shows the computed RTTs for both WiFi and LoRa. Despite the visible stability in the measurements, I have to underline an important factor for the WiFi RTTs: the measured Wi-Fi latency represents the local TCP buffer write time (~2ms) because the PubSubClient uses QoS 0 (fire-and-forget). It does NOT represent the true RTT (which should still be in a range of 30-60 ms). Conversely, the LoRaWAN latency (~1-2 seconds) represents the true MAC-layer transaction time, as the radio must wait for the RX1/RX2 receive windows to close.
 
 ![Network RTTs comparison](images/rtts_comparison.png)
@@ -106,7 +107,7 @@ $$f_{sampling} = 17 \text{ Hz} \cdot 2.2 = 37.4 \text{ Hz}$$
 
 As a result, we will get that in order to process an entire buffer we will need:
 
-$$T_{buffer} = \frac{512 \text{ samples}}{37.4 \text{ samples/second}} = 13.69 \text{ seconds}$$
+$$T_{buffer} = \frac{512 \text{ samples}}{37.4 \text{ samples/second}} \approx 13.69 \text{ seconds}$$
 
 $$\text{Buffers per window} = \frac{30 \text{ seconds}}{13.69 \text{ seconds/buffer}} \approx 2.19 \text{ buffers}$$
 
@@ -125,17 +126,65 @@ If instead, we want to see the volume of data as the theoretical amount of bytes
 
 ## Bonus
 ### Testing 3 different signals
-Below you will find 3 different test ran with 3 different functions.
+Below you will find 3 different tests ran with 3 different functions. For each of them, I will show the plot, the oversampling frequency energy consumption and the adaptive frequency energy consumption.
+
+### Signal 1
 
 $$s_{1}(t) = 4 \sin(2\pi \cdot 5t) + 5 \sin(2\pi \cdot 7t)$$
 
+#### Plot
+
 ![Signal 1 plot](images/signal_1.png)
+
+#### Oversampled frequency energy consumption
+
+![Signal 1 oversampled frequency](images/s1_oversampled.png)
+
+#### Adaptive frequency energy consumption
+
+![Signal 1 adaptive frequency](images/s1_adaptive.png)
+
+---
+
+### Signal 2
 
 $$s_{2}(t) = 12 \sin(2\pi \cdot 3t) + 2 \sin(2\pi \cdot 17t)$$
 
+#### Plot
+
 ![Signal 2 plot](images/signal_2.png)
+
+#### Oversampled frequency energy consumption
+
+![Signal 2 oversampled frequency](images/s2_oversampled.png)
+
+#### Adaptive frequency energy consumption
+
+![Signal 2 adaptive frequency](images/s2_adaptive.png)
+
+---
+
+### Signal 3
 
 $$s_{3}(t) = 2 \sin(2\pi \cdot 3t) + 10 \sin(2\pi \cdot 13t)$$
 
+#### Plot
+
 ![Signal 3 plot](images/signal_3.png)
+
+#### Oversampled frequency energy consumption
+
+![Signal 3 oversampled frequency](images/s3_oversampled.png)
+
+#### Adaptive frequency energy consumption
+
+![Signal 3 adaptive frequency](images/s3_adaptive.png)
+
+---
+
+As you can see for all 3 signals, the save in energy between an oversampled and an adaptive frequency can be quantified in a range of **12-14 mA**. This confirms the results previously showcased in the energy consumption evaluation, meaning that we are saving **almost 20%** of the energy used in the oversampling case!
+
+### Filters
+
+
 
