@@ -49,6 +49,7 @@ To make testing as seamless as possible, the entire system is highly modular. Yo
   * `1`: $s(t) = 4\sin(2\pi \cdot 5t) + 5\sin(2\pi \cdot 7t)$
   * `2`: $s(t) = 12\sin(2\pi \cdot 3t) + 2\sin(2\pi \cdot 17t)$
   * `3`: $s(t) = 2\sin(2\pi \cdot 3t) + 10\sin(2\pi \cdot 13t)$
+  * `4`: $s(t) = 2\sin(2\pi \cdot 3t) + 4\sin(2\pi \cdot 5t)$
   * `0`: Randomly generates a valid composed signal.
 
 ---
