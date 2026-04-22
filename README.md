@@ -28,6 +28,31 @@ The second project targets instead the `MONITOR` ESP32 and is only meant for mea
 
 ---
 
+## Configuration flags
+To make testing as seamless as possible, the entire system is highly modular. You can change the behavior of the system by modifying the preprocessor flags located at the top of the respective header files.
+
+### Sampling & anomaly filters (`sampler.h`)
+* `ADAPTIVE`: Set to `1` to enable the adaptive frequency algorithm (drastically saves battery), or `0` to lock the system at a 500 Hz oversampling rate.
+* `INJECT_NOISE`: Set to `1` to inject Gaussian baseline noise and a sparse random spike process to simulate EMI hardware faults. Set to `0` for a perfectly clean signal.
+* `FILTER_TYPE`: Controls the statistical anomaly filter.
+  * `0` = No Filter
+  * `1` = Z-Score Filter
+  * `2` = Hampel Filter
+
+### Network transmission (`network.h`)
+* `WIFI`: Set to `1` to enable MQTT transmission to ThingsBoard. 
+* `LORA`: Set to `1` to enable LoRaWAN transmission to The Things Network.
+*(Note: Both can be enabled simultaneously. The FreeRTOS queues will safely duplicate the aggregates for both network tasks).*
+
+### Signal generation (`generator.h`)
+* `MODE`: Selects the test signal to generate on the DAC.
+  * `1`: $s(t) = 4\sin(2\pi \cdot 5t) + 5\sin(2\pi \cdot 7t)$
+  * `2`: $s(t) = 12\sin(2\pi \cdot 3t) + 2\sin(2\pi \cdot 17t)$
+  * `3`: $s(t) = 2\sin(2\pi \cdot 3t) + 10\sin(2\pi \cdot 13t)$
+  * `0`: Randomly generates a valid composed signal.
+
+---
+
 ## Hardware setup
 I adopted 2 different setups for this whole assignment. 
 
@@ -216,6 +241,10 @@ As you can see in the photos above, the anomaly detection is pretty poor for bot
 Instead, when adaptive sampling kicks in and our sampling frequency drops to 11 Hz, it becomes way more difficult for both filters to spot outliers. This teaches us that anomaly detection is very complicated to perform when we are sampling at low frequencies!
 
 Moreover, we can see that the CPU time for the Z-Score filter is on average 5 ms longer than the CPU time for the Hampel filter. This is most likely due to the fact that the Z-Score filter function needs to compute its values by calling functions like `sqrt()` and `pow()`, making this filter slightly heavier.
+
+As a final proof, if we try to filter the exact same signal without adapting the sampling frequency (so we remain in the oversampled state), the Z-Score filter magically boosts its TPR to ~30-40%. This clearly shows that the effectiveness of sliding-window filters is strictly tied to the temporal resolution they operate on; when the sampling frequency is high, the natural variance inside the window is small enough to let the anomalies stick out. This demonstrates how difficult it is to perform statistical anomaly detection on heavily down-sampled signals.
+
+![Z-Score oversampled](images/zscore_oversampled.png)
 
 #### Max frequency (unfiltered vs filtered)
 What about the maximum frequency? Is it affected by the noise when there is no filter? To answer this question we will rely on the underlying plots which respectively show the maximum frequency when the signal is **unfiltered** and when the **Hampel filter** is applied.

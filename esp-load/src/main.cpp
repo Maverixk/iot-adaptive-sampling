@@ -12,8 +12,6 @@ void setup() {
   Serial.begin(115200);
   delay(3000);
   
-  // Serial.println("WiFi_RTT_ms\tLoRa_RTT_ms");
-
   initGenerator();
   initSampler();
   

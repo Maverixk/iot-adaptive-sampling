@@ -11,6 +11,12 @@
 #define FILTER_TYPE 0       // 0 = none, 1 = Z-Score, 2 = Hampel
 #define FILTER_WINDOW_SIZE 20 // Window size for the sliding filters
 
+#if INJECT_NOISE == 1
+    const float PROBABILITY_P = 0.05; // 2% chance of spike
+    const float NOISE_SIGMA = 0.2;    // Gaussian noise sigma
+    const float ADC_SCALE = 146.0;    // Rough scaling factor to map formula units to 12-bit ADC units
+#endif
+
 // Expose the FreeRTOS queue so the sampler can put aggregates on it
 extern QueueHandle_t mqttWifiQueue;
 extern QueueHandle_t loraQueue;

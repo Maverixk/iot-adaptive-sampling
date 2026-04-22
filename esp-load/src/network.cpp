@@ -26,8 +26,8 @@ LoRaWANNode node(&radio, &EU868);
 void wifiTask(void *pvParameters) {
     // Connect to WiFi
     Serial.print("[WiFi] Connecting to ");
-    Serial.println(HOME_WIFI_SSID);
-    WiFi.begin(HOME_WIFI_SSID, HOME_WIFI_PASS);
+    Serial.println(HOTSPOT_SSID);
+    WiFi.begin(HOTSPOT_SSID, HOTSPOT_PASS);
     
     while (WiFi.status() != WL_CONNECTED) {
         vTaskDelay(pdMS_TO_TICKS(500));

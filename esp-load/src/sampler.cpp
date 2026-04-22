@@ -33,11 +33,6 @@ volatile double latestMaxFreq = 0.0;
 
     bool* activeAnomalyMap = anomalyMapA;
     bool* processAnomalyMap = anomalyMapB;
-
-    // Filters bonus
-    const float PROBABILITY_P = 0.05; // 2% chance of spike
-    const float NOISE_SIGMA = 0.2;    // Gaussian noise sigma
-    const float ADC_SCALE = 146.0;    // Rough scaling factor to map formula units to 12-bit ADC units
 #endif
 
 QueueHandle_t mqttWifiQueue;
@@ -52,7 +47,7 @@ void initSampler() {
 }
 
 // Generate Gaussian noise (Box-Muller Transform)
-float generateGaussianNoise(float mu, float sigma) {
+static float generateGaussianNoise(float mu, float sigma) {
     float u1 = (float)esp_random() / UINT32_MAX;
     float u2 = (float)esp_random() / UINT32_MAX;
     if (u1 == 0.0) u1 = 1e-7; 
@@ -61,7 +56,7 @@ float generateGaussianNoise(float mu, float sigma) {
 }
 
 // Compute median
-float getMedian(float arr[], int n) {
+static float getMedian(float arr[], int n) {
     // Basic insertion sort for small windows
     for (int i = 1; i < n; ++i) {
         float key = arr[i];
@@ -130,7 +125,7 @@ void sampleSignalTask(void *pvParameters) {
         double currentFreq = currentSamplingFreq;
         TickType_t samplingDelay = pdMS_TO_TICKS(1000.0 / currentFreq);
 
-        int32_t val = analogRead(ADC_PIN);
+        uint16_t val = analogRead(ADC_PIN);
 
         #if INJECT_NOISE == 1
             activeAnomalyMap[index] = false;
@@ -151,7 +146,7 @@ void sampleSignalTask(void *pvParameters) {
             if (val < 0) val = 0;
         #endif
 
-        activeBuffer[index] = (uint16_t)val;
+        activeBuffer[index] = val;
 
         #if WIFI == 1 || LORA == 1
             windowSum += val;
