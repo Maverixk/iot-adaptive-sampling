@@ -57,7 +57,7 @@ To make testing as seamless as possible, the entire system is highly modular. Yo
 ## Hardware setup
 I adopted 2 different setups for this whole assignment. 
 
-The first setup only involves the `LOAD` ESP and the DAC, as I wanted to correctly implement the whole logic behind the signal generator, sampler and network trasmission. To do so, I simply plugged the USB-C cable of my PC into the ESP32 (`MONITOR`) port and connected the DAC to the MCU using DuPont wires. 
+The first setup only involves the `LOAD` ESP and the DAC, as I wanted to correctly implement the whole logic behind the signal generator, sampler and network trasmission. To do so, I simply plugged the USB-C cable of my PC into the ESP32 (`LOAD`) port and connected the DAC to the MCU using DuPont wires. 
 
 ![LOAD-only hardware setup](images/esp_load.png)
 
@@ -140,7 +140,7 @@ The photo shown below proposes an execution of the system where only LoRa is emp
 
 ![Per-window execution time example](images/per_window_time.png)
 
-We can notice that for packets 1, 6 and 12 we have a CPU time of 42 ms rather than the average 28 ms seen for the other packets. This is totally fine and is actually an interesting event to explain! In fact, considering our maximum frequency for this signal is **17 Hz**, the sampling frequency will be:
+We can notice that for packets 1, 6 and 12 we have a CPU time of **42 ms** rather than the average **28 ms** seen for the other packets. This is totally fine and is actually an interesting event to explain! In fact, considering our maximum frequency for this signal is **17 Hz**, the sampling frequency will be:
 
 $$f_{sampling} = 17 \text{ Hz} \cdot 2.2 = 37.4 \text{ Hz}$$
 
@@ -154,14 +154,14 @@ Consequently, we will have about **0.19** of a buffer left over for every window
 
 ### Volume of data
 Finally, some consideration on the entity of data traffic needs to be done. Practically speaking there isn't any real difference between whether we are in an oversampling or adaptive sampling scenario, as the volume of the data transmitted will always be the same:
-- **WiFi (MQTT)**: one JSON string containing the average value and packet ID (~45-50 bytes of payload);
+- **WiFi (MQTT)**: one JSON string containing the average value and packet ID (~22 bytes of payload);
 - **LoRa**: one 4-byte payload.
 
 This is due to the fact that the aggregate value is computed locally, in order to avoid a huge data stream that would only consume our TTN transmission time very quickly, as well as wasting a massive amount of energy from the battery.
 
-If instead, we want to see the volume of data as the theoretical amount of bytes we would be sending if we were transmitting all single samples, then the sampling frequency would have been crucial. In fact, there could have been many different cases:
-- **500 Hz** (oversampling), we would transmit 15,000 data points per window (**approx. 30,000 bytes**);
-- **17 Hz** (previous adaptive example), we would transmit 510 data points per window (**approx. 1,020 bytes**). 
+If instead, we want to see the volume of data as the theoretical amount of bytes we would be sending if we were transmitting all single samples, then the sampling frequency would have been crucial. In fact, there could have been many different cases, as for example:
+- **500 Hz** (oversampling), we would transmit 15,000 data points per window (**~330 kB** for WiFi and **~60 kB** for LoRa);
+- **17 Hz** (previous adaptive example), we would transmit 510 data points per window (**~11.2 kB** for WiFi and **~2.04 kB** for LoRa). 
 
 ---
 
