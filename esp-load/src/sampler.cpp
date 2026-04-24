@@ -125,7 +125,7 @@ void sampleSignalTask(void *pvParameters) {
         double currentFreq = currentSamplingFreq;
         TickType_t samplingDelay = pdMS_TO_TICKS(1000.0 / currentFreq);
 
-        uint16_t val = analogRead(ADC_PIN);
+        int32_t val = analogRead(ADC_PIN);
 
         #if INJECT_NOISE == 1
             activeAnomalyMap[index] = false;
@@ -146,7 +146,7 @@ void sampleSignalTask(void *pvParameters) {
             if (val < 0) val = 0;
         #endif
 
-        activeBuffer[index] = val;
+        activeBuffer[index] = (uint16_t)val;
 
         #if WIFI == 1 || LORA == 1
             windowSum += val;
